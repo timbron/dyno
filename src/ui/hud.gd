@@ -11,6 +11,8 @@ var _health_bar: ProgressBar
 var _stamina_bar: ProgressBar
 var _status_label: Label
 var _pause_banner: PanelContainer
+var _result_banner: PanelContainer
+var _result_label: Label
 
 
 func _ready() -> void:
@@ -28,9 +30,13 @@ func _ready() -> void:
 	_pause_banner = _build_pause_banner()
 	_place(root, _pause_banner, Control.PRESET_CENTER_TOP)
 	_pause_banner.visible = false
+	_result_banner = _build_result_banner()
+	_place(root, _result_banner, Control.PRESET_CENTER)
+	_result_banner.visible = false
 
 	EventBus.unit_selected.connect(_on_unit_selected)
 	EventBus.tactical_pause_changed.connect(_on_pause_changed)
+	EventBus.encounter_ended.connect(_on_encounter_ended)
 
 
 func _process(_delta: float) -> void:
@@ -55,6 +61,24 @@ func _on_pause_changed(paused: bool) -> void:
 	_pause_banner.visible = paused
 
 
+func _on_encounter_ended(result: RefCounted) -> void:
+	var ended := result as EncounterResult
+	if ended == null:
+		return
+	var color := Palette.AMBER
+	var text := "RETREAT"
+	if ended.outcome == EncounterResult.Outcome.WON:
+		text = "THE FIELD IS YOURS\n%d killed  ·  %d escaped" % [
+			ended.kills.size(), ended.escaped
+		]
+	elif ended.outcome == EncounterResult.Outcome.DIED:
+		color = Palette.CLAY
+		text = "YOUR LINE ENDS HERE"
+	_result_label.text = text
+	_result_label.add_theme_color_override(&"font_color", color)
+	_result_banner.visible = true
+
+
 func _place(root: Control, panel: Control, preset: Control.LayoutPreset) -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(panel)
@@ -66,8 +90,10 @@ func _place(root: Control, panel: Control, preset: Control.LayoutPreset) -> void
 		panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	if preset == Control.PRESET_BOTTOM_RIGHT:
 		panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	if preset in [Control.PRESET_CENTER_BOTTOM, Control.PRESET_CENTER_TOP]:
+	if preset in [Control.PRESET_CENTER_BOTTOM, Control.PRESET_CENTER_TOP, Control.PRESET_CENTER]:
 		panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	if preset == Control.PRESET_CENTER:
+		panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 
 
 func _build_vitals() -> PanelContainer:
@@ -106,7 +132,7 @@ func _build_abilities() -> PanelContainer:
 func _build_hints() -> PanelContainer:
 	var text := "WASD move  ·  Click move / attack  ·  Ctrl+Click queue\n"
 	text += "Tab next dino  ·  F pack follow / hold  ·  Space pause\n"
-	text += "RMB cancel orders  ·  RMB drag orbit  ·  Backspace leave"
+	text += "RMB cancel orders  ·  RMB drag orbit  ·  Backspace retreat"
 	return _panel(JungleTheme.label(text, Palette.LICHEN, 12))
 
 
@@ -114,6 +140,16 @@ func _build_pause_banner() -> PanelContainer:
 	var panel := _panel(JungleTheme.label("PAUSED  —  PLAN YOUR MOVES", Palette.AMBER, 18))
 	panel.add_theme_stylebox_override(
 		&"panel", JungleTheme.flat_box(Color(Palette.CANOPY, 0.92), Palette.AMBER, 1, 4, 14)
+	)
+	return panel
+
+
+func _build_result_banner() -> PanelContainer:
+	_result_label = JungleTheme.label("", Palette.AMBER, 22)
+	_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var panel := _panel(_result_label)
+	panel.add_theme_stylebox_override(
+		&"panel", JungleTheme.flat_box(Color(Palette.CANOPY, 0.92), Palette.BARK, 1, 4, 18)
 	)
 	return panel
 

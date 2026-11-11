@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="EncounterData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://src/tactical/encounter_data.gd" id="1"]
+[ext_resource type="Script" path="res://src/tactical/encounter_group.gd" id="2"]
+[ext_resource type="Resource" path="res://data/species/allosaur.tres" id="3"]
+
+[sub_resource type="Resource" id="rival"]
+script = ExtResource("2")
+species = ExtResource("3")
+distance = 42.0
+bearing_degrees = -10.0
+
+[resource]
+script = ExtResource("1")
+id = &"allosaur_rival"
+display_name = "Rival allosaur"
+arena_radius = 70.0
+groups = Array[ExtResource("2")]([SubResource("rival")])

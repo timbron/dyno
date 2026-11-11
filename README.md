@@ -23,7 +23,7 @@ life; DNA mutations pass to the next generation.
 | Tactical | F | Pack follows in formation / holds position |
 | Tactical | Space | Pause and plan |
 | Tactical | Right mouse drag, wheel | Orbit, zoom |
-| Tactical | Backspace | Leave encounter |
+| Tactical | Backspace, or walk past the edge posts | Retreat from the encounter |
 
 ## Tests
 
@@ -37,7 +37,7 @@ Tests live in `tests/suite.gd`; `run_tests.gd` only loads and runs it. Lint with
 ## Layout
 
 ```
-data/      Species and (later) ability, mutation, encounter resources
+data/      Species, AI profile and encounter resources; later abilities and mutations
 scenes/    .tscn files, one folder per layer (ui, strategic, tactical, dino)
 src/       GDScript, mirrored by layer; src/core holds the autoloads
 tests/     Headless test runner

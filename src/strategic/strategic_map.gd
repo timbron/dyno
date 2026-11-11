@@ -14,6 +14,8 @@ const REGIONS: Array[Dictionary] = [
 const ENCOUNTERS: Array[Vector2] = [
 	Vector2(700.0, 420.0), Vector2(1010.0, 250.0), Vector2(1180.0, 640.0),
 ]
+## Which data/encounters/<id>.tres each marker starts, in the order of ENCOUNTERS.
+const ENCOUNTER_IDS: Array[StringName] = [&"dryosaur_herd", &"allosaur_rival", &"contested_kill"]
 
 var _destination: Vector2
 var _status: Label
@@ -79,8 +81,14 @@ func _check_encounters() -> void:
 	for i in ENCOUNTERS.size():
 		if GameState.cleared_encounters.has(i):
 			continue
-		if GameState.map_position.distance_to(ENCOUNTERS[i]) <= ENCOUNTER_RADIUS:
-			GameState.cleared_encounters.append(i)
-			EventBus.encounter_started.emit(i)
+		var inside := GameState.map_position.distance_to(ENCOUNTERS[i]) <= ENCOUNTER_RADIUS
+		if i == GameState.fled_encounter_index:
+			# The party just retreated from this one: it triggers again only after it
+			# has walked clear of the marker.
+			if not inside:
+				GameState.fled_encounter_index = -1
+			continue
+		if inside:
+			GameState.begin_encounter(i, ENCOUNTER_IDS[i])
 			SceneRouter.go_to(SceneRouter.TACTICAL)
 			return

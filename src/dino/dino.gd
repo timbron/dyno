@@ -108,6 +108,15 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 
+## Colours the whole greybox body, so sides can be told apart. Call after _ready().
+func set_tint(color: Color) -> void:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = 1.0
+	for node in _visual.find_children("*", "MeshInstance3D", true, false):
+		(node as MeshInstance3D).material_override = material
+
+
 func is_dead() -> bool:
 	return _dead
 

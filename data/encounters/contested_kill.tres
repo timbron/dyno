@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="EncounterData" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://src/tactical/encounter_data.gd" id="1"]
+[ext_resource type="Script" path="res://src/tactical/encounter_group.gd" id="2"]
+[ext_resource type="Resource" path="res://data/species/dryosaur.tres" id="3"]
+[ext_resource type="Resource" path="res://data/species/allosaur.tres" id="4"]
+
+[sub_resource type="Resource" id="herd"]
+script = ExtResource("2")
+species = ExtResource("3")
+count = 3
+distance = 34.0
+bearing_degrees = 40.0
+spread = 3.0
+
+[sub_resource type="Resource" id="rival"]
+script = ExtResource("2")
+species = ExtResource("4")
+distance = 48.0
+bearing_degrees = -35.0
+
+[resource]
+script = ExtResource("1")
+id = &"contested_kill"
+display_name = "Contested hunting ground"
+arena_radius = 75.0
+groups = Array[ExtResource("2")]([SubResource("herd"), SubResource("rival")])

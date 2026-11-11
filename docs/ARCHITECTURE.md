@@ -18,7 +18,7 @@ must survive the change.
 | --- | --- | --- |
 | `EventBus` | Global signals | see below |
 | `InputSetup` | Registers input actions | `KEY_ACTIONS` |
-| `GameState` | Run state | `species`, `genome`, `generation`, `day`, `hour`, `map_position`, `cleared_encounters`, `start_new_life()`, `party_size()`, `age_days()`, `advance_time()` |
+| `GameState` | Run state | `species`, `genome`, `generation`, `day`, `hour`, `map_position`, `cleared_encounters`, `pending_encounter_index`, `pending_encounter_id`, `fled_encounter_index`, `last_encounter`, `begin_encounter()`, `record_encounter()`, `start_new_life()`, `party_size()`, `age_days()`, `advance_time()` |
 | `TimeController` | Tactical pause | `is_paused`, `set_paused()` |
 | `SceneRouter` | Scene changes | `go_to()`, path constants |
 
@@ -32,7 +32,8 @@ must survive the change.
 | `unit_selected(dino)` | SquadController | selected `Dino` |
 | `dino_died(dino)` | Dino | the dead `Dino` |
 | `pack_mode_changed(following)` | SquadController | bool: true = follow, false = hold |
-| `encounter_started(index)` | strategic map | encounter index |
+| `encounter_started(index)` | GameState (`begin_encounter()`) | map marker index |
+| `encounter_ended(result)` | GameState (`record_encounter()`) | the `EncounterResult` |
 | `xp_gained(amount)` | reserved for progression | int |
 
 ## Classes
@@ -41,7 +42,7 @@ must survive the change.
 | --- | --- | --- |
 | `SpeciesData` (Resource) | `src/dino/species_data.gd` | One `.tres` per species in `data/species/`. `playable`, `temperament`, `flee_health_fraction`, `bite_cooldown`, `meat`; `load_all()`, `load_playable()` |
 | `Genome` (Resource) | `src/dino/genome.gd` | Heritable mutation ids, `inherit()` |
-| `Dino` (CharacterBody3D) | `src/dino/dino.gd` | Body only: `move_intent`, `wants_sprint`, `commands`, `faction`, `take_damage(amount, attacker)`, `bite(target)`, `can_reach(target)`, `bite_ready()`, `is_dead()`, `health_fraction()`, `body_radius()`, `stage_for()`; local signals `damaged(amount, attacker)`, `died`, `bit(target, damage, zone)`; group `Dino.GROUP` |
+| `Dino` (CharacterBody3D) | `src/dino/dino.gd` | Body only: `move_intent`, `wants_sprint`, `commands`, `faction`, `take_damage(amount, attacker)`, `bite(target)`, `can_reach(target)`, `bite_ready()`, `is_dead()`, `health_fraction()`, `body_radius()`, `set_tint(color)`, `stage_for()`; local signals `damaged(amount, attacker)`, `died`, `bit(target, damage, zone)`; group `Dino.GROUP` |
 | `TacticalCommand` | `src/tactical/tactical_command.gd` | `move_to()` and `attack()` work; `USE_ABILITY`, `WAIT` are stubs |
 | `CombatMath` | `src/tactical/combat_math.gd` | Pure bite maths: `hit_zone()`, `bite_damage()`, `bite_reach()`, `in_reach()`, `in_bite_arc()` |
 | `WildBrain` (Node) | `src/ai/wild_brain.gd` | Child of a wild `Dino`. States `IDLE`, `FLEE`, `ATTACK`; pure `decide()` |
@@ -49,6 +50,10 @@ must survive the change.
 | `CommandQueue` | `src/tactical/command_queue.gd` | Per-dino FIFO; `remove_last()` drops the newest order |
 | `OrderTargeting` | `src/tactical/order_targeting.gd` | Pure click-order maths: `ray_capsule_distance()`, `pick_radius()`, `pick_enemy()`, `command_destination()`, `path_points()` |
 | `OrderPathPreview` (MeshInstance3D) | `src/tactical/order_path_preview.gd` | Ground ribbon and markers for the selected dino's queue; runs while paused |
+| `EncounterData` (Resource) | `src/tactical/encounter_data.gd` | One `.tres` per encounter in `data/encounters/`, named after its `id`. `arena_radius`, `groups`; `load_by_id()`, `load_all()`, `body_count()` |
+| `EncounterGroup` (Resource) | `src/tactical/encounter_group.gd` | Sub-resource of an encounter: `species`, `count` (0 = pack size), `distance`, `bearing_degrees`, `spread`; `body_count()`, `centre()`, `positions()` |
+| `EncounterResult` | `src/tactical/encounter_result.gd` | `outcome` (`ONGOING`, `WON`, `FLED`, `DIED`), `survivors`, `wounds`, `lost`, `kills`, `escaped`, `meat`; pure `decide()` |
+| `EncounterDirector` (Node) | `src/tactical/encounter_director.gd` | Referee: `squad`, `wild`, `leader`, `arena_radius`, `finish(outcome)`, `is_finished()`, `outside_arena()`; signal `finished(result)` |
 | `Formation` | `src/tactical/formation.gd` | Pure wedge maths: `slot_offset()`, `slot_position()`, `spacing_for()` |
 | `SquadController` | `src/tactical/squad_controller.gd` | Selection (living only), direct control, click orders, pack follow / hold: `pack_following`, `set_pack_following()`, `living()`, `order_move(point, append)`, `order_attack(target, append)`, `cancel_orders(last_only)` |
 | `ThirdPersonCamera` | `src/camera/third_person_camera.gd` | `set_target()`; runs while paused |
@@ -76,6 +81,27 @@ An `ATTACK` command makes the dino run at its target, turn to face it and bite u
 target is dead, then the queue moves on. Dinos with the same `faction` never threaten or
 target each other; the player's squad is `Dino.FACTION_PLAYER`, everything else defaults to
 `Dino.FACTION_WILD`.
+
+## Encounters
+
+Hand-off: the map calls `GameState.begin_encounter(index, id)` and goes to the tactical
+scene, which loads `data/encounters/<id>.tres` (falling back to `dryosaur_herd`). The squad
+spawns at the arena centre facing -Z; each `EncounterGroup` is placed by distance and
+bearing from there, every body gets a `WildBrain` and faction `Dino.FACTION_WILD`.
+
+The `EncounterDirector` ends the encounter exactly once:
+
+- **Won**: no living wild animal is left on the field. A wild animal that crosses
+  `arena_radius` has escaped and is removed, so a herd that scatters also ends it.
+- **Fled**: the selected dino crosses `arena_radius`, or the player presses
+  `leave_encounter`. Followers over the edge do not count.
+- **Died**: every squad member is dead.
+
+The tactical scene passes the `EncounterResult` to `GameState.record_encounter()` before
+it changes scene: at once on a retreat, after a few seconds on a win (back to the map) or
+a wipe (to the main menu). A won encounter joins `cleared_encounters`; a fled one stays on
+the map and is held in `fled_encounter_index` so it cannot trigger again until the party
+has walked clear of its marker.
 
 ## Orders
 
@@ -124,7 +150,7 @@ stop. The strategic map does not use tactical pause: time there passes only whil
 | `src/core/`, `project.godot`, `docs/ARCHITECTURE.md` | orchestrator |
 | `src/strategic/`, `scenes/strategic/`, `data/world/` | 01 strategic |
 | `src/dino/`, `scenes/dino/`, `data/species/` | 02 dino core |
-| `src/tactical/`, `src/camera/`, `scenes/tactical/` | 03 tactical |
+| `src/tactical/`, `src/camera/`, `scenes/tactical/`, `data/encounters/` | 03 tactical |
 | `src/ai/`, `data/ai/` | 04 AI |
 | `src/progression/`, `data/abilities/`, `data/mutations/` | 05 progression |
 | `src/ui/`, `scenes/ui/` | 06 UI |
@@ -134,14 +160,18 @@ stop. The strategic map does not use tactical pause: time there passes only whil
 ## Known gaps in the scaffold
 
 - Not yet run in the Godot editor: scripts are lint-clean only. First job is QA-01.
-- Strategic regions and encounters are hard-coded constants (to be moved to data).
+- Strategic regions, encounter markers and which encounter each marker starts are
+  hard-coded constants in the map (to be moved to data, S-05).
 - Ground is the y = 0 plane; click orders intersect that plane, not terrain.
-- Encounters spawn no wild animals yet (T-03), so there is nothing to click on: attack
-  orders, combat and AI run only in tests. No save/load, audio or real art.
+- No save/load, audio or real art. Sides are told apart by a body tint only.
+- `EncounterResult` is recorded but nothing reads it yet: dead pack members and wounds
+  are back at the next encounter (S-02), meat is not eaten (S-01), a wipe only returns
+  to the main menu.
+- Retreat has no chase check, and all wild animals share one faction, so a rival
+  predator ignores prey in the same encounter.
 - Only the selected dino takes click orders, and only its queue is previewed.
 - Click-pick tuning (`PICK_RADIUS_SCALE`, `PICK_RADIUS_MARGIN`) is constants in
   `OrderTargeting`, not data.
-- The arena has no edge handling: a fleeing animal runs off the ground plane (T-03).
 - Combat tuning (arc, zone multipliers, reach margin) is constants in `CombatMath`,
   not data.
 - Main menu "Continue" is disabled until save and load exist (C-01).

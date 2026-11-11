@@ -10,4 +10,6 @@ signal unit_selected(dino: Node3D)
 signal dino_died(dino: Node3D)
 signal pack_mode_changed(following: bool)
 signal encounter_started(encounter_index: int)
+## [param result] is an EncounterResult.
+signal encounter_ended(result: RefCounted)
 signal xp_gained(amount: int)

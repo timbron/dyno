@@ -33,7 +33,7 @@ OPEN from QA-01:
 | D-02 | Two wild species as data: small herd prey, large rival predator (done 2026-11-12) | 02 | D-01 |
 | T-01 | ATTACK command: approach, bite with facing arc, flank and rear bonus (done 2026-11-12) | 03 | D-01 |
 | T-02 | Order targeting: click enemy to attack, right-click cancel, order path preview (done 2026-11-12, headless only: preview not yet seen on screen) | 03 | T-01 |
-| T-03 | Encounter setup from data: who spawns where, win / flee / death outcomes back to map | 03 | D-02 |
+| T-03 | Encounter setup from data: who spawns where, win / flee / death outcomes back to map (done 2026-11-12, headless only) | 03 | D-02 |
 | T-04 | Pack follow: unselected members follow or hold; formation spacing (done 2026-11-12) | 03 | QA-01 |
 | A-01 | Wild AI v1: idle, flee when hurt, attack when cornered or predator (done 2026-11-12) | 04 | D-01 |
 | U-01 | Tactical HUD per design: squad portraits, order queue strip, pause overlay | 06 | T-02 |
@@ -41,6 +41,13 @@ OPEN from QA-01:
 | QA-02 | Tests for damage and arc maths; CI lint and headless test run | 08 | T-01 |
 
 Parallel lanes: (D-01, D-02) with (T-04, U-02); then (T-01, A-01); then (T-02, T-03, U-01, QA-02).
+
+OPEN from T-02 and T-03:
+
+- Neither has been played by hand: check clicking an enemy, the path preview, the arena
+  edge posts, the result banner and the three encounters for balance.
+- Nothing consumes `GameState.last_encounter` yet (S-01 feeding, S-02 wounds and losses).
+- Map markers and their encounter ids are constants in `strategic_map.gd` (S-05).
 
 ## M2 Survival loop
 
