@@ -8,6 +8,7 @@ const SCENES: Array[String] = [
 	"res://scenes/tactical/tactical.tscn",
 ]
 const SMOKE_FRAMES: int = 10
+const DINO_SCENE: PackedScene = preload("res://scenes/dino/dino.tscn")
 
 var checks: int = 0
 var failures: int = 0
@@ -17,6 +18,8 @@ func run(tree: SceneTree) -> void:
 	_test_age_stage()
 	_test_genome_inherit()
 	_test_command_queue()
+	await _test_dino_damage_and_death(tree)
+	await _test_dino_collision_scale(tree)
 	await _test_scenes_smoke(tree)
 
 
@@ -56,6 +59,64 @@ func _test_command_queue() -> void:
 	_check(queue.current().target_position == Vector3(3.0, 0.0, 4.0), "advance moves to next")
 	queue.clear()
 	_check(queue.is_empty(), "clear empties the queue")
+
+
+func _spawn_dino(tree: SceneTree, species: SpeciesData) -> Dino:
+	var dino := DINO_SCENE.instantiate() as Dino
+	dino.setup(species, "Test")
+	tree.root.add_child(dino)
+	return dino
+
+
+func _test_dino_damage_and_death(tree: SceneTree) -> void:
+	var species := SpeciesData.new()
+	species.max_health = 50.0
+	var dino := _spawn_dino(tree, species)
+	var deaths: Array[Node3D] = []
+	var on_died := func(dead: Node3D) -> void: deaths.append(dead)
+	EventBus.dino_died.connect(on_died)
+	_check(dino.health == 50.0, "dino starts at species max health")
+	dino.take_damage(-5.0)
+	_check(dino.health == 50.0, "negative damage is ignored")
+	dino.take_damage(20.0)
+	_check(dino.health == 30.0 and not dino.is_dead(), "damage reduces health")
+	_check(is_equal_approx(dino.health_fraction(), 0.6), "health fraction follows health")
+	dino.commands.enqueue(TacticalCommand.move_to(Vector3(9.0, 0.0, 9.0)))
+	dino.take_damage(500.0)
+	_check(dino.health == 0.0 and dino.is_dead(), "overkill clamps at zero and kills")
+	dino.take_damage(10.0)
+	_check(deaths.size() == 1 and deaths[0] == dino, "dino_died is emitted exactly once")
+	_check(dino.commands.is_empty(), "death clears the command queue")
+	_check(dino.is_in_group(Dino.CORPSE_GROUP), "dead dino is a corpse")
+	_check(dino.collision_layer == Dino.LAYER_CORPSE, "corpse leaves the body layer")
+	dino.move_intent = Vector3.FORWARD
+	var start := dino.global_position
+	for i in SMOKE_FRAMES:
+		await tree.physics_frame
+	var moved := dino.global_position - start
+	moved.y = 0.0
+	_check(moved.length() < 0.001, "corpse ignores move intent")
+	EventBus.dino_died.disconnect(on_died)
+	dino.queue_free()
+	await tree.process_frame
+
+
+func _test_dino_collision_scale(tree: SceneTree) -> void:
+	var small := SpeciesData.new()
+	small.body_scale = 0.5
+	var large := SpeciesData.new()
+	large.body_scale = 2.5
+	var a := _spawn_dino(tree, small)
+	var b := _spawn_dino(tree, large)
+	var shape_a := (a.get_node("Collision") as CollisionShape3D).shape as CapsuleShape3D
+	var shape_b := (b.get_node("Collision") as CollisionShape3D).shape as CapsuleShape3D
+	_check(shape_a != shape_b, "each dino has its own collision shape")
+	_check(is_equal_approx(shape_a.radius, Dino.BASE_RADIUS * 0.5), "small collision radius")
+	_check(is_equal_approx(shape_b.height, Dino.BASE_HEIGHT * 2.5), "large collision height")
+	_check(is_equal_approx(b.body_radius(), shape_b.radius), "body_radius matches the shape")
+	a.queue_free()
+	b.queue_free()
+	await tree.process_frame
 
 
 ## Each scene must load, enter the tree and survive a few frames.

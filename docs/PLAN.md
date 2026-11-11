@@ -30,7 +30,7 @@ OPEN from QA-01:
 
 | Id | Task | Owner | Needs |
 | --- | --- | --- | --- |
-| D-01 | Health, damage, death state, corpse; collision scaled by species | 02 | QA-01 |
+| D-01 | Health, damage, death state, corpse; collision scaled by species (done 2026-11-12) | 02 | QA-01 |
 | D-02 | Two wild species as data: small herd prey, large rival predator | 02 | D-01 |
 | T-01 | ATTACK command: approach, bite with facing arc, flank and rear bonus | 03 | D-01 |
 | T-02 | Order targeting: click enemy to attack, right-click cancel, order path preview | 03 | T-01 |

@@ -40,12 +40,22 @@ must survive the change.
 | --- | --- | --- |
 | `SpeciesData` (Resource) | `src/dino/species_data.gd` | One `.tres` per species in `data/species/` |
 | `Genome` (Resource) | `src/dino/genome.gd` | Heritable mutation ids, `inherit()` |
-| `Dino` (CharacterBody3D) | `src/dino/dino.gd` | Body only: `move_intent`, `wants_sprint`, `commands`, `take_damage()`, `stage_for()` |
+| `Dino` (CharacterBody3D) | `src/dino/dino.gd` | Body only: `move_intent`, `wants_sprint`, `commands`, `take_damage(amount, attacker)`, `is_dead()`, `health_fraction()`, `body_radius()`, `stage_for()`; local signals `damaged(amount, attacker)`, `died` |
 | `TacticalCommand` | `src/tactical/tactical_command.gd` | `MOVE_TO` works; `ATTACK`, `USE_ABILITY`, `WAIT` are stubs |
 | `CommandQueue` | `src/tactical/command_queue.gd` | Per-dino FIFO |
 | `SquadController` | `src/tactical/squad_controller.gd` | Selection, direct control, click orders |
 | `ThirdPersonCamera` | `src/camera/third_person_camera.gd` | `set_target()`; runs while paused |
 | `Palette`, `JungleTheme` | `src/ui/` | Colours and Theme builder |
+
+## Death and corpses
+
+A `Dino` at zero health emits `died` and `EventBus.dino_died` once, clears its commands and
+ignores intent from then on. It stays in the scene as a corpse: group `Dino.CORPSE_GROUP`,
+physics layer `Dino.LAYER_CORPSE` (2) instead of `Dino.LAYER_BODY` (1), so the living walk
+through it. Controllers and AI must check `is_dead()` before driving or targeting a dino.
+
+The collision capsule is built per dino from `Dino.BASE_RADIUS` / `BASE_HEIGHT` times
+`SpeciesData.body_scale`; use `body_radius()` for reach and spacing maths.
 
 ## Input actions
 
@@ -77,4 +87,6 @@ stop. The strategic map does not use tactical pause: time there passes only whil
 - Not yet run in the Godot editor: scripts are lint-clean only. First job is QA-01.
 - Strategic regions and encounters are hard-coded constants (to be moved to data).
 - Ground is the y = 0 plane; click orders intersect that plane, not terrain.
-- No combat, AI, save/load, audio or real art.
+- Damage and death exist, but nothing deals damage yet (T-01). No AI, save/load, audio or
+  real art.
+- `SquadController` still selects and drives dead pack members (to fix in T-04).
