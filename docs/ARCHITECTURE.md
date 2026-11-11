@@ -39,10 +39,13 @@ must survive the change.
 
 | Class | File | Notes |
 | --- | --- | --- |
-| `SpeciesData` (Resource) | `src/dino/species_data.gd` | One `.tres` per species in `data/species/`. `playable`, `temperament`, `flee_health_fraction`, `meat`; `load_all()`, `load_playable()` |
+| `SpeciesData` (Resource) | `src/dino/species_data.gd` | One `.tres` per species in `data/species/`. `playable`, `temperament`, `flee_health_fraction`, `bite_cooldown`, `meat`; `load_all()`, `load_playable()` |
 | `Genome` (Resource) | `src/dino/genome.gd` | Heritable mutation ids, `inherit()` |
-| `Dino` (CharacterBody3D) | `src/dino/dino.gd` | Body only: `move_intent`, `wants_sprint`, `commands`, `take_damage(amount, attacker)`, `is_dead()`, `health_fraction()`, `body_radius()`, `stage_for()`; local signals `damaged(amount, attacker)`, `died` |
-| `TacticalCommand` | `src/tactical/tactical_command.gd` | `MOVE_TO` works; `ATTACK`, `USE_ABILITY`, `WAIT` are stubs |
+| `Dino` (CharacterBody3D) | `src/dino/dino.gd` | Body only: `move_intent`, `wants_sprint`, `commands`, `faction`, `take_damage(amount, attacker)`, `bite(target)`, `can_reach(target)`, `bite_ready()`, `is_dead()`, `health_fraction()`, `body_radius()`, `stage_for()`; local signals `damaged(amount, attacker)`, `died`, `bit(target, damage, zone)`; group `Dino.GROUP` |
+| `TacticalCommand` | `src/tactical/tactical_command.gd` | `move_to()` and `attack()` work; `USE_ABILITY`, `WAIT` are stubs |
+| `CombatMath` | `src/tactical/combat_math.gd` | Pure bite maths: `hit_zone()`, `bite_damage()`, `bite_reach()`, `in_reach()`, `in_bite_arc()` |
+| `WildBrain` (Node) | `src/ai/wild_brain.gd` | Child of a wild `Dino`. States `IDLE`, `FLEE`, `ATTACK`; pure `decide()` |
+| `AiProfile` (Resource) | `src/ai/ai_profile.gd` | Sight, safe, cornered and territory ranges, wander tuning. One `.tres` per temperament in `data/ai/` |
 | `CommandQueue` | `src/tactical/command_queue.gd` | Per-dino FIFO |
 | `Formation` | `src/tactical/formation.gd` | Pure wedge maths: `slot_offset()`, `slot_position()`, `spacing_for()` |
 | `SquadController` | `src/tactical/squad_controller.gd` | Selection (living only), direct control, click orders, pack follow / hold: `pack_following`, `set_pack_following()`, `living()` |
@@ -58,6 +61,26 @@ through it. Controllers and AI must check `is_dead()` before driving or targetin
 
 The collision capsule is built per dino from `Dino.BASE_RADIUS` / `BASE_HEIGHT` times
 `SpeciesData.body_scale`; use `body_radius()` for reach and spacing maths.
+
+## Combat
+
+A bite lands when the target is within `CombatMath.bite_reach()` (both body radii plus a
+margin) and inside the attacker's 100 degree frontal arc, and the attacker's
+`SpeciesData.bite_cooldown` has run out. Damage is `bite_damage` times a zone multiplier
+taken from where the attacker stands relative to the target's facing: front 1.0 (within
+60 degrees), flank 1.25, rear 1.5 (beyond 120 degrees).
+
+An `ATTACK` command makes the dino run at its target, turn to face it and bite until the
+target is dead, then the queue moves on. Dinos with the same `faction` never threaten or
+target each other; the player's squad is `Dino.FACTION_PLAYER`, everything else defaults to
+`Dino.FACTION_WILD`.
+
+## Wild AI
+
+`WildBrain.decide()` picks the state from the species temperament: no threat in sight is
+idle; cornered (threat on top of it and out of stamina) always fights; hurt (below
+`flee_health_fraction`) flees; otherwise skittish flees, predator attacks, territorial
+attacks only threats inside its territory radius. Being bitten alerts a brain at once.
 
 ## Pack follow
 
@@ -97,8 +120,10 @@ stop. The strategic map does not use tactical pause: time there passes only whil
 - Not yet run in the Godot editor: scripts are lint-clean only. First job is QA-01.
 - Strategic regions and encounters are hard-coded constants (to be moved to data).
 - Ground is the y = 0 plane; click orders intersect that plane, not terrain.
-- Damage and death exist, but nothing deals damage yet (T-01). No AI, save/load, audio or
-  real art.
-- Wild species exist as data only; nothing spawns them yet (T-03) and they have no AI (A-01).
+- The player cannot order an attack yet (T-02) and encounters spawn no wild animals
+  (T-03), so combat and AI run only in tests. No save/load, audio or real art.
+- The arena has no edge handling: a fleeing animal runs off the ground plane (T-03).
+- Combat tuning (arc, zone multipliers, reach margin) is constants in `CombatMath`,
+  not data.
 - Main menu "Continue" is disabled until save and load exist (C-01).
 - UI screens were built without the "Dyno UI" design canvas; check them against it.

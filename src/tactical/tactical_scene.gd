@@ -39,6 +39,7 @@ func _spawn_squad() -> void:
 		if species.pack_size > 1:
 			label = "%s %d" % [species.display_name, i + 1]
 		dino.setup(species, label)
+		dino.faction = Dino.FACTION_PLAYER
 		dino.position = Vector3((i - (species.pack_size - 1) * 0.5) * 3.0, 0.5, 0.0)
 		add_child(dino)
 		_squad.members.append(dino)

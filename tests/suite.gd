@@ -9,6 +9,7 @@ const SCENES: Array[String] = [
 	"res://scenes/tactical/tactical.tscn",
 ]
 const SMOKE_FRAMES: int = 10
+const COMBAT_SUITE_PATH: String = "res://tests/combat_suite.gd"
 const DINO_SCENE: PackedScene = preload("res://scenes/dino/dino.tscn")
 
 var checks: int = 0
@@ -24,6 +25,8 @@ func run(tree: SceneTree) -> void:
 	_test_species_data()
 	_test_formation()
 	await _test_pack_follow(tree)
+	var combat: RefCounted = (load(COMBAT_SUITE_PATH) as GDScript).new()
+	await combat.call("run", tree, self)
 	await _test_scenes_smoke(tree)
 
 

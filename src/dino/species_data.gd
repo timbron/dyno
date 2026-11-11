@@ -24,6 +24,8 @@ const DIRECTORY: String = "res://data/species/"
 @export var move_speed: float = 6.0
 @export var sprint_multiplier: float = 1.5
 @export var bite_damage: float = 20.0
+## Seconds between two bites.
+@export var bite_cooldown: float = 1.2
 @export var body_scale: float = 1.0
 @export var lifespan_days: int = 120
 ## Food a full-grown carcass yields, in meal units (used by feeding in M2).

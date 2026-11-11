@@ -16,3 +16,11 @@ static func move_to(position: Vector3) -> TacticalCommand:
 	command.type = Type.MOVE_TO
 	command.target_position = position
 	return command
+
+
+## Close on [param victim] and keep biting it until it dies or the order is replaced.
+static func attack(victim: Node3D) -> TacticalCommand:
+	var command := TacticalCommand.new()
+	command.type = Type.ATTACK
+	command.target = victim
+	return command

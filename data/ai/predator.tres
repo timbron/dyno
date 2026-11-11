@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="AiProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/ai/ai_profile.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+sight_range = 30.0
+safe_range = 40.0
+cornered_range = 6.0
+wander_radius = 12.0
+wander_pause_min = 4.0
+wander_pause_max = 9.0

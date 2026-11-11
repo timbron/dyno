@@ -10,6 +10,8 @@ extends CharacterBody3D
 signal damaged(amount: float, attacker: Dino)
 ## Emitted once, together with [signal EventBus.dino_died].
 signal died
+## Emitted when this dino's bite lands. [param zone] is a [enum CombatMath.Zone].
+signal bit(target: Dino, damage: float, zone: int)
 
 enum AgeStage { HATCHLING, JUVENILE, ADULT, ELDER }
 
@@ -23,12 +25,17 @@ const BASE_RADIUS: float = 0.6
 const BASE_HEIGHT: float = 2.0
 const LAYER_BODY: int = 1
 const LAYER_CORPSE: int = 2
+const GROUP: StringName = &"dinos"
 const CORPSE_GROUP: StringName = &"corpses"
+const FACTION_PLAYER: StringName = &"player"
+const FACTION_WILD: StringName = &"wild"
 const CORPSE_ROLL: float = PI * 0.5
 
 @export var species: SpeciesData
 
 var display_label: String = "Dino"
+## Dinos of the same faction never count each other as threats or targets.
+var faction: StringName = FACTION_WILD
 var health: float = 100.0
 var stamina: float = 100.0
 var move_intent: Vector3 = Vector3.ZERO
@@ -36,6 +43,9 @@ var wants_sprint: bool = false
 var commands: CommandQueue = CommandQueue.new()
 
 var _dead: bool = false
+var _bite_cooldown: float = 0.0
+## Direction to turn toward while standing still (set when lining up a bite).
+var _face_intent: Vector3 = Vector3.ZERO
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8)
 
 @onready var _visual: Node3D = $Visual
@@ -71,12 +81,15 @@ func _ready() -> void:
 	platform_on_leave = CharacterBody3D.PLATFORM_ON_LEAVE_DO_NOTHING
 	_visual.scale = Vector3.ONE * species.body_scale
 	_fit_collision()
+	add_to_group(GROUP)
 
 
 func _physics_process(delta: float) -> void:
 	if _dead:
 		_settle(delta)
 		return
+	_bite_cooldown = maxf(_bite_cooldown - delta, 0.0)
+	_face_intent = Vector3.ZERO
 	_follow_commands()
 	var direction := Vector3(move_intent.x, 0.0, move_intent.z).limit_length(1.0)
 	var sprinting := wants_sprint and stamina > 0.0 and direction != Vector3.ZERO
@@ -86,9 +99,10 @@ func _physics_process(delta: float) -> void:
 	velocity.x = move_toward(velocity.x, direction.x * speed, ACCELERATION * delta)
 	velocity.z = move_toward(velocity.z, direction.z * speed, ACCELERATION * delta)
 	_apply_gravity(delta)
-	if direction != Vector3.ZERO:
-		var facing := atan2(-direction.x, -direction.z)
-		rotation.y = lerp_angle(rotation.y, facing, TURN_SPEED * delta)
+	var look := direction if direction != Vector3.ZERO else _face_intent
+	if look != Vector3.ZERO:
+		var facing := atan2(-look.x, -look.z)
+		rotation.y = lerp_angle(rotation.y, facing, minf(TURN_SPEED * delta, 1.0))
 	var stamina_rate := -SPRINT_STAMINA_PER_SEC if sprinting else STAMINA_REGEN_PER_SEC
 	stamina = clampf(stamina + stamina_rate * delta, 0.0, species.max_stamina)
 	move_and_slide()
@@ -115,6 +129,34 @@ func take_damage(amount: float, attacker: Dino = null) -> void:
 	damaged.emit(amount, attacker)
 	if health == 0.0:
 		_die()
+
+
+## True when [param target] is alive, close enough and inside the jaws' arc.
+func can_reach(target: Dino) -> bool:
+	if _dead or target == null or target == self or target.is_dead():
+		return false
+	var here := global_position
+	var there := target.global_position
+	if not CombatMath.in_reach(here, body_radius(), there, target.body_radius()):
+		return false
+	return CombatMath.in_bite_arc(here, rotation.y, there)
+
+
+func bite_ready() -> bool:
+	return not _dead and _bite_cooldown <= 0.0
+
+
+## Bites [param target] if it is reachable and the jaws are ready. Damage depends on
+## which side of the target this dino stands. Returns whether the bite landed.
+func bite(target: Dino) -> bool:
+	if not bite_ready() or not can_reach(target):
+		return false
+	_bite_cooldown = species.bite_cooldown
+	var zone := CombatMath.hit_zone(global_position, target.global_position, target.rotation.y)
+	var amount := CombatMath.bite_damage(species.bite_damage, zone)
+	target.take_damage(amount, self)
+	bit.emit(target, amount, zone)
+	return true
 
 
 func _die() -> void:
@@ -162,8 +204,11 @@ func _follow_commands() -> void:
 	var command := commands.current()
 	if command == null:
 		return
+	if command.type == TacticalCommand.Type.ATTACK:
+		_follow_attack(command)
+		return
 	if command.type != TacticalCommand.Type.MOVE_TO:
-		# TODO(tactical): ATTACK, USE_ABILITY and WAIT are not implemented yet.
+		# TODO(tactical): USE_ABILITY and WAIT are not implemented yet.
 		commands.advance()
 		return
 	var offset := command.target_position - global_position
@@ -174,3 +219,23 @@ func _follow_commands() -> void:
 			move_intent = Vector3.ZERO
 		return
 	move_intent = offset.normalized()
+
+
+## ATTACK: run at the target, turn to face it once in reach, bite whenever the jaws are
+## ready. The order ends when the target is dead or gone.
+func _follow_attack(command: TacticalCommand) -> void:
+	var target := command.target as Dino
+	if not is_instance_valid(target) or target.is_dead() or target == self:
+		commands.advance()
+		if commands.is_empty():
+			move_intent = Vector3.ZERO
+		return
+	var offset := target.global_position - global_position
+	offset.y = 0.0
+	var reach := CombatMath.bite_reach(body_radius(), target.body_radius())
+	if offset.length() > reach:
+		move_intent = offset.normalized()
+		return
+	move_intent = Vector3.ZERO
+	_face_intent = offset.normalized()
+	bite(target)

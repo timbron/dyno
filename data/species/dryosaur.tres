@@ -17,6 +17,7 @@ max_stamina = 140.0
 move_speed = 7.5
 sprint_multiplier = 1.6
 bite_damage = 4.0
+bite_cooldown = 1.0
 body_scale = 0.6
 lifespan_days = 70
 meat = 0.6

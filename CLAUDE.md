@@ -22,6 +22,7 @@ Design is in `docs/GDD.md`. Work is sequenced in `docs/PLAN.md`.
 8. `Dino` never reads input. Controllers and AI drive it through `move_intent`,
    `wants_sprint` and `commands`.
 9. Pure logic (formulas, queues, inheritance, generation) gets a test in `tests/suite.gd`
+   or a suite it loads such as `tests/combat_suite.gd`
    (`tests/run_tests.gd` is only the loader; it must not name game classes statically).
 10. Do not add plugins, addons or third-party assets without approval from the orchestrator.
 
