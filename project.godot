@@ -7,7 +7,8 @@ config_version=5
 
 config/name="Dyno"
 config/description="Strategy and tactics survival game set in the age of dinosaurs."
-run/main_scene="res://scenes/ui/species_select.tscn"
+run/main_scene="res://scenes/ui/main_menu.tscn"
+config/version="0.1.0"
 config/features=PackedStringArray("4.4", "Forward Plus")
 
 [autoload]

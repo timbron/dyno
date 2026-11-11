@@ -64,6 +64,11 @@ func _ready() -> void:
 		species = SpeciesData.new()
 	health = species.max_health
 	stamina = species.max_stamina
+	# Other dinos are obstacles, never moving platforms: without this a body that rides up
+	# on another inherits its velocity and both get flung across the arena.
+	platform_floor_layers = 0
+	platform_wall_layers = 0
+	platform_on_leave = CharacterBody3D.PLATFORM_ON_LEAVE_DO_NOTHING
 	_visual.scale = Vector3.ONE * species.body_scale
 	_fit_collision()
 

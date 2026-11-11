@@ -24,21 +24,20 @@ OPEN from QA-01:
 
 - Verified headless only (import, 120-frame run, scene smoke tests). Nobody has played the
   species select, map, tactical loop by hand yet.
-- CI workflow (`.github/workflows/ci.yml`) is written but has not run: nothing is pushed.
 
 ## M1 Combat slice
 
 | Id | Task | Owner | Needs |
 | --- | --- | --- | --- |
 | D-01 | Health, damage, death state, corpse; collision scaled by species (done 2026-11-12) | 02 | QA-01 |
-| D-02 | Two wild species as data: small herd prey, large rival predator | 02 | D-01 |
+| D-02 | Two wild species as data: small herd prey, large rival predator (done 2026-11-12) | 02 | D-01 |
 | T-01 | ATTACK command: approach, bite with facing arc, flank and rear bonus | 03 | D-01 |
 | T-02 | Order targeting: click enemy to attack, right-click cancel, order path preview | 03 | T-01 |
 | T-03 | Encounter setup from data: who spawns where, win / flee / death outcomes back to map | 03 | D-02 |
-| T-04 | Pack follow: unselected members follow or hold; formation spacing | 03 | QA-01 |
+| T-04 | Pack follow: unselected members follow or hold; formation spacing (done 2026-11-12) | 03 | QA-01 |
 | A-01 | Wild AI v1: idle, flee when hurt, attack when cornered or predator | 04 | D-01 |
 | U-01 | Tactical HUD per design: squad portraits, order queue strip, pause overlay | 06 | T-02 |
-| U-02 | Species select and main menu per design | 06 | QA-01 |
+| U-02 | Species select and main menu per design (done 2026-11-12, not checked against the design canvas) | 06 | QA-01 |
 | QA-02 | Tests for damage and arc maths; CI lint and headless test run | 08 | T-01 |
 
 Parallel lanes: (D-01, D-02) with (T-04, U-02); then (T-01, A-01); then (T-02, T-03, U-01, QA-02).

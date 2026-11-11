@@ -16,3 +16,4 @@ sprint_multiplier = 1.7
 bite_damage = 12.0
 body_scale = 0.8
 lifespan_days = 90
+meat = 1.2

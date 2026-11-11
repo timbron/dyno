@@ -5,8 +5,8 @@ This file is the contract between agents. Change it in the same commit as the co
 ## Scene flow
 
 ```
-species_select  ->  strategic_map  <->  tactical
-   (Control)          (Node2D)          (Node3D)
+main_menu  ->  species_select  ->  strategic_map  <->  tactical
+(Control)       (Control)           (Node2D)          (Node3D)
 ```
 
 `SceneRouter.go_to(path)` is the only way to change scene. `GameState` carries everything that
@@ -31,6 +31,7 @@ must survive the change.
 | `tactical_pause_changed(paused)` | TimeController | bool |
 | `unit_selected(dino)` | SquadController | selected `Dino` |
 | `dino_died(dino)` | Dino | the dead `Dino` |
+| `pack_mode_changed(following)` | SquadController | bool: true = follow, false = hold |
 | `encounter_started(index)` | strategic map | encounter index |
 | `xp_gained(amount)` | reserved for progression | int |
 
@@ -38,12 +39,13 @@ must survive the change.
 
 | Class | File | Notes |
 | --- | --- | --- |
-| `SpeciesData` (Resource) | `src/dino/species_data.gd` | One `.tres` per species in `data/species/` |
+| `SpeciesData` (Resource) | `src/dino/species_data.gd` | One `.tres` per species in `data/species/`. `playable`, `temperament`, `flee_health_fraction`, `meat`; `load_all()`, `load_playable()` |
 | `Genome` (Resource) | `src/dino/genome.gd` | Heritable mutation ids, `inherit()` |
 | `Dino` (CharacterBody3D) | `src/dino/dino.gd` | Body only: `move_intent`, `wants_sprint`, `commands`, `take_damage(amount, attacker)`, `is_dead()`, `health_fraction()`, `body_radius()`, `stage_for()`; local signals `damaged(amount, attacker)`, `died` |
 | `TacticalCommand` | `src/tactical/tactical_command.gd` | `MOVE_TO` works; `ATTACK`, `USE_ABILITY`, `WAIT` are stubs |
 | `CommandQueue` | `src/tactical/command_queue.gd` | Per-dino FIFO |
-| `SquadController` | `src/tactical/squad_controller.gd` | Selection, direct control, click orders |
+| `Formation` | `src/tactical/formation.gd` | Pure wedge maths: `slot_offset()`, `slot_position()`, `spacing_for()` |
+| `SquadController` | `src/tactical/squad_controller.gd` | Selection (living only), direct control, click orders, pack follow / hold: `pack_following`, `set_pack_following()`, `living()` |
 | `ThirdPersonCamera` | `src/camera/third_person_camera.gd` | `set_target()`; runs while paused |
 | `Palette`, `JungleTheme` | `src/ui/` | Colours and Theme builder |
 
@@ -57,9 +59,17 @@ through it. Controllers and AI must check `is_dead()` before driving or targetin
 The collision capsule is built per dino from `Dino.BASE_RADIUS` / `BASE_HEIGHT` times
 `SpeciesData.body_scale`; use `body_radius()` for reach and spacing maths.
 
+## Pack follow
+
+Unselected living members follow the selected dino in a wedge (`Formation`) while
+`SquadController.pack_following` is true; F toggles follow / hold. A member given a click
+order holds where the order ends until the pack is told to follow again or it is driven
+directly. Dinos never treat each other as moving platforms (`platform_floor_layers = 0`).
+
 ## Input actions
 
 `move_forward/back/left/right`, `sprint`, `tactical_pause`, `select_next`, `queue_modifier`,
+`toggle_pack_follow` (F),
 `leave_encounter`, `ability_1..4`. Add new ones in `src/core/input_setup.gd`.
 
 ## Pause model
@@ -89,4 +99,6 @@ stop. The strategic map does not use tactical pause: time there passes only whil
 - Ground is the y = 0 plane; click orders intersect that plane, not terrain.
 - Damage and death exist, but nothing deals damage yet (T-01). No AI, save/load, audio or
   real art.
-- `SquadController` still selects and drives dead pack members (to fix in T-04).
+- Wild species exist as data only; nothing spawns them yet (T-03) and they have no AI (A-01).
+- Main menu "Continue" is disabled until save and load exist (C-01).
+- UI screens were built without the "Dyno UI" design canvas; check them against it.

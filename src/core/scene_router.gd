@@ -1,6 +1,7 @@
 extends Node
-## Scene flow (autoload "SceneRouter"): species select -> strategic map <-> tactical.
+## Scene flow (autoload "SceneRouter"): main menu -> species select -> strategic map <-> tactical.
 
+const MAIN_MENU: String = "res://scenes/ui/main_menu.tscn"
 const SPECIES_SELECT: String = "res://scenes/ui/species_select.tscn"
 const STRATEGIC_MAP: String = "res://scenes/strategic/strategic_map.tscn"
 const TACTICAL: String = "res://scenes/tactical/tactical.tscn"

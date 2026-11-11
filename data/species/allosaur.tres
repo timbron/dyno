@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="SpeciesData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/dino/species_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"allosaur"
+display_name = "Allosaur"
+description = "Large rival predator. Holds a territory alone and fights anything that hunts in it, but backs off when badly hurt."
+playable = false
+social_type = 0
+pack_size = 1
+temperament = 2
+flee_health_fraction = 0.25
+max_health = 240.0
+max_stamina = 90.0
+move_speed = 6.2
+sprint_multiplier = 1.5
+bite_damage = 42.0
+body_scale = 1.8
+lifespan_days = 120
+meat = 4.0

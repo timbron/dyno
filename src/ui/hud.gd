@@ -105,7 +105,8 @@ func _build_abilities() -> PanelContainer:
 
 func _build_hints() -> PanelContainer:
 	var text := "WASD move  ·  Click order  ·  Ctrl+Click queue\n"
-	text += "Tab next dino  ·  Space pause  ·  RMB orbit  ·  Backspace leave"
+	text += "Tab next dino  ·  F pack follow / hold  ·  Space pause\n"
+	text += "RMB orbit  ·  Backspace leave"
 	return _panel(JungleTheme.label(text, Palette.LICHEN, 12))
 
 

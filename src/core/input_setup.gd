@@ -11,6 +11,7 @@ const KEY_ACTIONS: Dictionary = {
 	&"tactical_pause": [KEY_SPACE],
 	&"select_next": [KEY_TAB],
 	&"queue_modifier": [KEY_CTRL],
+	&"toggle_pack_follow": [KEY_F],
 	&"leave_encounter": [KEY_BACKSPACE],
 	&"ability_1": [KEY_1],
 	&"ability_2": [KEY_2],
