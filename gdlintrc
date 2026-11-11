@@ -1,0 +1,5 @@
+max-line-length: 100
+excluded_directories: !!set
+  .git: null
+  .godot: null
+  addons: null

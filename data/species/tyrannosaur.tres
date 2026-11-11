@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="SpeciesData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/dino/species_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"tyrannosaur"
+display_name = "Tyrannosaur"
+description = "Solo apex hunter. One huge body, a devastating bite and little stamina. Every wound is yours alone to carry."
+social_type = 0
+pack_size = 1
+max_health = 320.0
+max_stamina = 70.0
+move_speed = 5.5
+sprint_multiplier = 1.4
+bite_damage = 60.0
+body_scale = 2.2
+lifespan_days = 140

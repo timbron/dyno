@@ -1,0 +1,30 @@
+; Engine configuration file.
+; Edit through the Godot editor where possible; keep hand edits minimal.
+
+config_version=5
+
+[application]
+
+config/name="Dyno"
+config/description="Strategy and tactics survival game set in the age of dinosaurs."
+run/main_scene="res://scenes/ui/species_select.tscn"
+config/features=PackedStringArray("4.4", "Forward Plus")
+
+[autoload]
+
+EventBus="*res://src/core/event_bus.gd"
+InputSetup="*res://src/core/input_setup.gd"
+GameState="*res://src/core/game_state.gd"
+TimeController="*res://src/core/time_controller.gd"
+SceneRouter="*res://src/core/scene_router.gd"
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[rendering]
+
+environment/defaults/default_clear_color=Color(0.078, 0.11, 0.09, 1)
