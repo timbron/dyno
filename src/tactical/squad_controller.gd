@@ -3,7 +3,9 @@ extends Node
 ## Player control of the squad on the tactical field.
 ## - Tab cycles the selected dino among the living (a solo species has a squad of one).
 ## - WASD drives the selected dino directly, relative to the camera.
-## - Left click orders the selected dino to move; hold Ctrl to append to its queue.
+## - Left click orders the selected dino to move, or to attack when the click is on an
+##   enemy; hold Ctrl to append to its queue.
+## - Right click (without dragging) cancels its orders; with Ctrl only the newest one.
 ## - F switches the rest of the pack between following in formation and holding position.
 ##   A member that was given a click order holds where the order ends until the pack is
 ##   told to follow again.
@@ -13,12 +15,15 @@ extends Node
 const SLOT_TOLERANCE: float = 1.0
 ## Followers sprint to catch up when further than this from their slot.
 const CATCH_UP_DISTANCE: float = 6.0
+## A right press and release within this many pixels is a click, not a camera drag.
+const CLICK_SLOP: float = 6.0
 
 var members: Array[Dino] = []
 var selected_index: int = 0
 var pack_following: bool = true
 
 var _holding: Array[Dino] = []
+var _right_press: Vector2 = Vector2.INF
 
 
 func _ready() -> void:
@@ -69,9 +74,63 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed(&"toggle_pack_follow"):
 		set_pack_following(not pack_following)
 	elif event is InputEventMouseButton:
-		var click := event as InputEventMouseButton
-		if click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
-			_order_move(click.position)
+		_on_mouse_button(event as InputEventMouseButton)
+
+
+## Orders the selected dino to attack [param target]. With [param append] the order joins
+## the end of its queue, otherwise it replaces the queue. Friends and corpses are refused.
+func order_attack(target: Dino, append: bool = false) -> bool:
+	var dino := selected()
+	if dino == null or dino.is_dead() or not is_instance_valid(target):
+		return false
+	if target.is_dead() or target.faction == dino.faction:
+		return false
+	_give_order(dino, TacticalCommand.attack(target), append)
+	return true
+
+
+## Orders the selected dino to walk to [param point].
+func order_move(point: Vector3, append: bool = false) -> bool:
+	var dino := selected()
+	if dino == null or dino.is_dead():
+		return false
+	_give_order(dino, TacticalCommand.move_to(point), append)
+	return true
+
+
+## Cancels the selected dino's orders: all of them, or with [param last_only] just the
+## newest. A dino left without orders rejoins the pack.
+func cancel_orders(last_only: bool = false) -> void:
+	var dino := selected()
+	if dino == null or dino.is_dead():
+		return
+	if last_only:
+		dino.commands.remove_last()
+	else:
+		dino.commands.clear()
+	if dino.commands.is_empty():
+		_holding.erase(dino)
+		_halt(dino)
+
+
+func _on_mouse_button(click: InputEventMouseButton) -> void:
+	if click.button_index == MOUSE_BUTTON_LEFT:
+		if click.pressed:
+			_order_at(click.position)
+	elif click.button_index == MOUSE_BUTTON_RIGHT:
+		# Right mouse also orbits the camera: only a click without a drag cancels.
+		if click.pressed:
+			_right_press = click.position
+		elif click.position.distance_to(_right_press) <= CLICK_SLOP:
+			cancel_orders(Input.is_action_pressed(&"queue_modifier"))
+
+
+func _give_order(dino: Dino, command: TacticalCommand, append: bool) -> void:
+	if not append:
+		dino.commands.clear()
+	dino.commands.enqueue(command)
+	if not _holding.has(dino):
+		_holding.append(dino)
 
 
 func _physics_process(_delta: float) -> void:
@@ -152,20 +211,25 @@ func _on_dino_died(dino: Node3D) -> void:
 		select(selected_index + 1)
 
 
-func _order_move(screen_position: Vector2) -> void:
+## A click on an enemy orders an attack; a click anywhere else orders a move there.
+func _order_at(screen_position: Vector2) -> void:
 	var dino := selected()
 	var camera := get_viewport().get_camera_3d()
 	if dino == null or dino.is_dead() or camera == null:
 		return
 	var origin := camera.project_ray_origin(screen_position)
 	var normal := camera.project_ray_normal(screen_position)
+	var append := Input.is_action_pressed(&"queue_modifier")
+	var candidates: Array[Dino] = []
+	for node in get_tree().get_nodes_in_group(Dino.GROUP):
+		var candidate := node as Dino
+		if candidate != null:
+			candidates.append(candidate)
+	var enemy := OrderTargeting.pick_enemy(origin, normal, candidates, dino.faction)
+	if enemy != null:
+		order_attack(enemy, append)
+		return
 	# Greybox ground is the y = 0 plane. TODO(tactical): raycast against terrain.
 	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(origin, normal)
-	if hit == null:
-		return
-	if not Input.is_action_pressed(&"queue_modifier"):
-		dino.commands.clear()
-	var point: Vector3 = hit
-	dino.commands.enqueue(TacticalCommand.move_to(point))
-	if not _holding.has(dino):
-		_holding.append(dino)
+	if hit != null:
+		order_move(hit as Vector3, append)

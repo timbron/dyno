@@ -46,9 +46,11 @@ must survive the change.
 | `CombatMath` | `src/tactical/combat_math.gd` | Pure bite maths: `hit_zone()`, `bite_damage()`, `bite_reach()`, `in_reach()`, `in_bite_arc()` |
 | `WildBrain` (Node) | `src/ai/wild_brain.gd` | Child of a wild `Dino`. States `IDLE`, `FLEE`, `ATTACK`; pure `decide()` |
 | `AiProfile` (Resource) | `src/ai/ai_profile.gd` | Sight, safe, cornered and territory ranges, wander tuning. One `.tres` per temperament in `data/ai/` |
-| `CommandQueue` | `src/tactical/command_queue.gd` | Per-dino FIFO |
+| `CommandQueue` | `src/tactical/command_queue.gd` | Per-dino FIFO; `remove_last()` drops the newest order |
+| `OrderTargeting` | `src/tactical/order_targeting.gd` | Pure click-order maths: `ray_capsule_distance()`, `pick_radius()`, `pick_enemy()`, `command_destination()`, `path_points()` |
+| `OrderPathPreview` (MeshInstance3D) | `src/tactical/order_path_preview.gd` | Ground ribbon and markers for the selected dino's queue; runs while paused |
 | `Formation` | `src/tactical/formation.gd` | Pure wedge maths: `slot_offset()`, `slot_position()`, `spacing_for()` |
-| `SquadController` | `src/tactical/squad_controller.gd` | Selection (living only), direct control, click orders, pack follow / hold: `pack_following`, `set_pack_following()`, `living()` |
+| `SquadController` | `src/tactical/squad_controller.gd` | Selection (living only), direct control, click orders, pack follow / hold: `pack_following`, `set_pack_following()`, `living()`, `order_move(point, append)`, `order_attack(target, append)`, `cancel_orders(last_only)` |
 | `ThirdPersonCamera` | `src/camera/third_person_camera.gd` | `set_target()`; runs while paused |
 | `Palette`, `JungleTheme` | `src/ui/` | Colours and Theme builder |
 
@@ -74,6 +76,20 @@ An `ATTACK` command makes the dino run at its target, turn to face it and bite u
 target is dead, then the queue moves on. Dinos with the same `faction` never threaten or
 target each other; the player's squad is `Dino.FACTION_PLAYER`, everything else defaults to
 `Dino.FACTION_WILD`.
+
+## Orders
+
+Every click order goes through `SquadController.order_move()` / `order_attack()` /
+`cancel_orders()`; mouse input only decides which one to call. A left click on a living
+dino of another faction orders an attack, anywhere else a move to that point on the ground;
+with `queue_modifier` (Ctrl) held the order is appended, otherwise it replaces the queue.
+A right click cancels the selected dino's orders (with Ctrl only the newest); a right drag
+is a camera orbit and cancels nothing. Enemies are picked by ray against an upright capsule
+wider than the collision shape (`OrderTargeting.pick_radius()`), not by a physics query, so
+picking works the same while paused and is not blocked by trees.
+
+`OrderPathPreview` draws the selected dino's queue: move legs in `Palette.BONE`, attack
+legs in `Palette.CLAY`, following a live target and dropping an order whose target died.
 
 ## Wild AI
 
@@ -120,8 +136,11 @@ stop. The strategic map does not use tactical pause: time there passes only whil
 - Not yet run in the Godot editor: scripts are lint-clean only. First job is QA-01.
 - Strategic regions and encounters are hard-coded constants (to be moved to data).
 - Ground is the y = 0 plane; click orders intersect that plane, not terrain.
-- The player cannot order an attack yet (T-02) and encounters spawn no wild animals
-  (T-03), so combat and AI run only in tests. No save/load, audio or real art.
+- Encounters spawn no wild animals yet (T-03), so there is nothing to click on: attack
+  orders, combat and AI run only in tests. No save/load, audio or real art.
+- Only the selected dino takes click orders, and only its queue is previewed.
+- Click-pick tuning (`PICK_RADIUS_SCALE`, `PICK_RADIUS_MARGIN`) is constants in
+  `OrderTargeting`, not data.
 - The arena has no edge handling: a fleeing animal runs off the ground plane (T-03).
 - Combat tuning (arc, zone multipliers, reach margin) is constants in `CombatMath`,
   not data.

@@ -17,11 +17,12 @@ life; DNA mutations pass to the next generation.
 | --- | --- | --- |
 | Map | Left click | Travel (time passes only while moving) |
 | Tactical | WASD / Shift | Move / sprint the selected dino |
-| Tactical | Left click, Ctrl+click | Order move / append to queue |
+| Tactical | Left click, Ctrl+click | Order move, or attack when clicking an enemy / append to queue |
+| Tactical | Right click, Ctrl+right click | Cancel orders / cancel the newest order |
 | Tactical | Tab | Next pack member |
 | Tactical | F | Pack follows in formation / holds position |
 | Tactical | Space | Pause and plan |
-| Tactical | Right mouse, wheel | Orbit, zoom |
+| Tactical | Right mouse drag, wheel | Orbit, zoom |
 | Tactical | Backspace | Leave encounter |
 
 ## Tests

@@ -1,5 +1,6 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
+[ext_resource type="Script" path="res://src/tactical/order_path_preview.gd" id="5"]
 [ext_resource type="Script" path="res://src/tactical/tactical_scene.gd" id="1"]
 [ext_resource type="Script" path="res://src/camera/third_person_camera.gd" id="2"]
 [ext_resource type="Script" path="res://src/tactical/squad_controller.gd" id="3"]
@@ -19,4 +20,7 @@ script = ExtResource("2")
 [node name="Squad" type="Node" parent="."]
 script = ExtResource("3")
 
-[node name="HUD" parent="." instance=ExtResource("4")]
+[node name="OrderPreview" type="MeshInstance3D" parent="."]
+script = ExtResource("5")
+
+[node name="HUD"parent="." instance=ExtResource("4")]

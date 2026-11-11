@@ -22,6 +22,13 @@ func advance() -> void:
 		changed.emit()
 
 
+## Drops the newest order, the one that would run last.
+func remove_last() -> void:
+	if not _commands.is_empty():
+		_commands.pop_back()
+		changed.emit()
+
+
 func clear() -> void:
 	if not _commands.is_empty():
 		_commands.clear()

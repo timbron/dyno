@@ -32,7 +32,7 @@ OPEN from QA-01:
 | D-01 | Health, damage, death state, corpse; collision scaled by species (done 2026-11-12) | 02 | QA-01 |
 | D-02 | Two wild species as data: small herd prey, large rival predator (done 2026-11-12) | 02 | D-01 |
 | T-01 | ATTACK command: approach, bite with facing arc, flank and rear bonus (done 2026-11-12) | 03 | D-01 |
-| T-02 | Order targeting: click enemy to attack, right-click cancel, order path preview | 03 | T-01 |
+| T-02 | Order targeting: click enemy to attack, right-click cancel, order path preview (done 2026-11-12, headless only: preview not yet seen on screen) | 03 | T-01 |
 | T-03 | Encounter setup from data: who spawns where, win / flee / death outcomes back to map | 03 | D-02 |
 | T-04 | Pack follow: unselected members follow or hold; formation spacing (done 2026-11-12) | 03 | QA-01 |
 | A-01 | Wild AI v1: idle, flee when hurt, attack when cornered or predator (done 2026-11-12) | 04 | D-01 |

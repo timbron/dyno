@@ -12,6 +12,8 @@ func run(tree: SceneTree, suite: RefCounted) -> void:
 	_test_brain_decide()
 	await _test_attack_command(tree)
 	await _test_wild_brain(tree)
+	_test_pick_maths()
+	await _test_order_targeting(tree)
 
 
 func _check(condition: bool, description: String) -> void:
@@ -173,5 +175,88 @@ func _test_wild_brain(tree: SceneTree) -> void:
 	var after := rival.global_position.distance_to(bystander.global_position)
 	_check(after > hurt_at, "hurt rival runs from its attacker")
 	for node: Node in [ground, hunter, rival, bystander, friend, other]:
+		node.queue_free()
+	await tree.process_frame
+
+
+func _test_pick_maths() -> void:
+	var eye := Vector3(0.0, 1.0, 10.0)
+	var base := Vector3.ZERO
+	var hit := OrderTargeting.ray_capsule_distance(eye, Vector3.FORWARD, base, 0.6, 2.0)
+	_check(is_equal_approx(hit, 10.0), "a ray through the capsule reports the distance to it")
+	var wide := OrderTargeting.ray_capsule_distance(eye, Vector3(0.2, 0.0, -1.0), base, 0.6, 2.0)
+	_check(wide == OrderTargeting.MISS, "a ray that passes beside the capsule misses")
+	var away := OrderTargeting.ray_capsule_distance(eye, Vector3.BACK, base, 0.6, 2.0)
+	_check(away == OrderTargeting.MISS, "a ray pointing away misses")
+	var over := OrderTargeting.ray_capsule_distance(
+		Vector3(0.0, 4.0, 10.0), Vector3.FORWARD, base, 0.6, 2.0
+	)
+	_check(over == OrderTargeting.MISS, "a ray over the capsule's head misses")
+	var none := OrderTargeting.ray_capsule_distance(eye, Vector3.ZERO, base, 0.6, 2.0)
+	_check(none == OrderTargeting.MISS, "a ray without direction misses")
+	_check(OrderTargeting.pick_radius(1.0) > 1.0, "click targets are wider than the body")
+
+
+func _test_order_targeting(tree: SceneTree) -> void:
+	var ground := _make_ground(tree)
+	var species := SpeciesData.new()
+	var squad := SquadController.new()
+	tree.root.add_child(squad)
+	var hunter := _spawn_dino(tree, species, Vector3(0.0, 0.1, 30.0))
+	hunter.faction = Dino.FACTION_PLAYER
+	var friend := _spawn_dino(tree, species, Vector3(0.0, 0.1, 20.0))
+	friend.faction = Dino.FACTION_PLAYER
+	var near := _spawn_dino(tree, species, Vector3(0.0, 0.1, 10.0))
+	var far := _spawn_dino(tree, species, Vector3(0.0, 0.1, 0.0))
+	squad.members.append(hunter)
+	squad.members.append(friend)
+	squad.select(0)
+	await _wait(tree, 5)
+	var everyone: Array[Dino] = [hunter, friend, near, far]
+	var eye := Vector3(0.0, 1.0, 40.0)
+	var player := Dino.FACTION_PLAYER
+	var picked := OrderTargeting.pick_enemy(eye, Vector3.FORWARD, everyone, player)
+	_check(picked == near, "a click picks the nearest enemy on the ray, past friends")
+	var beside := OrderTargeting.pick_enemy(eye, Vector3(0.5, 0.0, -1.0), everyone, player)
+	_check(beside == null, "a click on open ground picks nobody")
+
+	# Orders: replace, append, cancel the newest, cancel all.
+	_check(not squad.order_attack(friend), "a pack mate cannot be ordered attacked")
+	_check(squad.order_attack(near), "an enemy can")
+	squad.order_move(Vector3(5.0, 0.0, 5.0), true)
+	squad.order_attack(far, true)
+	_check(hunter.commands.size() == 3, "appended orders join the queue")
+	var path := OrderTargeting.path_points(hunter.global_position, hunter.commands.all())
+	_check(path.size() == 4, "the preview path has the dino and every order's stop")
+	_check(path[1].distance_to(near.global_position) < 0.01, "an attack leads to its target")
+	_check(path[2] == Vector3(5.0, 0.0, 5.0), "a move leads to its point")
+	squad.cancel_orders(true)
+	var newest := hunter.commands.all().back() as TacticalCommand
+	_check(hunter.commands.size() == 2, "cancelling the newest order keeps the rest")
+	_check(newest.type == TacticalCommand.Type.MOVE_TO, "and it is the newest that goes")
+	squad.order_move(Vector3(9.0, 0.0, 9.0))
+	_check(hunter.commands.size() == 1, "an order without append replaces the queue")
+	squad.cancel_orders()
+	_check(hunter.commands.is_empty(), "cancel clears the queue")
+	await _wait(tree, 30)
+	var drift := hunter.global_position.distance_to(Vector3(0.0, 0.0, 30.0))
+	_check(drift < 1.0, "a dino whose orders were cancelled stays put")
+
+	# Planned while paused, carried out in order once time runs again.
+	TimeController.set_paused(true)
+	squad.order_move(Vector3(0.0, 0.0, 24.0))
+	squad.order_attack(near, true)
+	squad.order_move(Vector3(8.0, 0.0, 24.0), true)
+	TimeController.set_paused(false)
+	near.take_damage(near.species.max_health - 1.0)
+	await _wait(tree, 600)
+	_check(near.is_dead(), "a queued attack order kills its target")
+	_check(hunter.commands.is_empty(), "the queue runs to its end")
+	var rest := hunter.global_position.distance_to(Vector3(8.0, 0.0, 24.0))
+	_check(rest < 1.5, "the dino ends where its last order sent it")
+	var stale := TacticalCommand.attack(near)
+	_check(OrderTargeting.command_destination(stale) == null, "a dead target leaves no path")
+	_check(not squad.order_attack(near), "a corpse cannot be ordered attacked")
+	for node: Node in [squad, ground, hunter, friend, near, far]:
 		node.queue_free()
 	await tree.process_frame
