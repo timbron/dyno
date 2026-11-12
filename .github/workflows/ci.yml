@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 env:
   GODOT_VERSION: 4.7.2-stable
 
@@ -11,6 +14,9 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
 
@@ -34,11 +40,7 @@ jobs:
           godot --version
 
       - name: Import
-        run: |
-          godot --headless --path . --import 2>&1 | tee import.log
-          ! grep -E "SCRIPT ERROR|Parse Error|Compile Error" import.log
+        run: bash tests/ci/run_godot.sh import
 
       - name: Tests
-        run: |
-          godot --headless --path . -s res://tests/run_tests.gd 2>&1 | tee tests.log
-          ! grep -E "SCRIPT ERROR|^ERROR|FAIL:" tests.log
+        run: bash tests/ci/run_godot.sh tests

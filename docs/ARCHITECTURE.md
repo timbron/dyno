@@ -79,7 +79,7 @@ A bite lands when the target is within `CombatMath.bite_reach()` (both body radi
 margin) and inside the attacker's 100 degree frontal arc, and the attacker's
 `SpeciesData.bite_cooldown` has run out. Damage is `bite_damage` times a zone multiplier
 taken from where the attacker stands relative to the target's facing: front 1.0 (within
-60 degrees), flank 1.25, rear 1.5 (beyond 120 degrees).
+60 degrees), flank 1.25, rear 1.5 (120 degrees or more).
 
 An `ATTACK` command makes the dino run at its target, turn to face it and bite until the
 target is dead, then the queue moves on. Dinos with the same `faction` never threaten or
@@ -163,7 +163,6 @@ stop. The strategic map does not use tactical pause: time there passes only whil
 
 ## Known gaps in the scaffold
 
-- Not yet run in the Godot editor: scripts are lint-clean only. First job is QA-01.
 - Strategic regions, encounter markers and which encounter each marker starts are
   hard-coded constants in the map (to be moved to data, S-05).
 - Ground is the y = 0 plane; click orders intersect that plane, not terrain.

@@ -9,6 +9,9 @@ var _suite: RefCounted
 func run(tree: SceneTree, suite: RefCounted) -> void:
 	_suite = suite
 	_test_combat_math()
+	_test_zone_boundaries()
+	_test_bite_arc_edges()
+	await _test_bite_cooldown(tree)
 	_test_brain_decide()
 	await _test_attack_command(tree)
 	await _test_wild_brain(tree)
@@ -80,6 +83,112 @@ func _test_combat_math() -> void:
 	_check(CombatMath.in_bite_arc(origin, 0.0, Vector3(0.5, 0.0, -2.0)), "ahead is in the arc")
 	_check(not CombatMath.in_bite_arc(origin, 0.0, Vector3(2.0, 0.0, 0.0)), "abeam is not")
 	_check(not CombatMath.in_bite_arc(origin, 0.0, Vector3(0.0, 0.0, 2.0)), "behind is not")
+
+func _at_angle(origin: Vector3, yaw: float, degrees: float, distance: float) -> Vector3:
+	return origin + CombatMath.facing(yaw).rotated(Vector3.UP, deg_to_rad(degrees)) * distance
+
+
+func _test_zone_boundaries() -> void:
+	var origin := Vector3.ZERO
+	var cases: Array = [
+		[59.5, CombatMath.Zone.FRONT],
+		[60.5, CombatMath.Zone.FLANK],
+		[119.5, CombatMath.Zone.FLANK],
+		[120.5, CombatMath.Zone.REAR],
+		[180.0, CombatMath.Zone.REAR],
+		[0.0, CombatMath.Zone.FRONT],
+	]
+	for yaw: float in [0.0, 2.0]:
+		for side: float in [1.0, -1.0]:
+			for entry: Array in cases:
+				var degrees: float = entry[0]
+				var expected: int = entry[1]
+				var attacker := _at_angle(origin, yaw, side * degrees, 3.0)
+				var zone := CombatMath.hit_zone(attacker, origin, yaw)
+				var label := "attacker at %s degrees, side %s, target yaw %s" % [degrees, side, yaw]
+				_check(zone == expected, label + " hits the expected zone")
+	var raised := _at_angle(origin, 0.0, 59.5, 3.0) + Vector3(0.0, 4.0, 0.0)
+	var raised_zone := CombatMath.hit_zone(raised, origin, 0.0)
+	_check(raised_zone == CombatMath.Zone.FRONT, "height does not change the zone")
+	var on_top := CombatMath.hit_zone(origin, origin, 1.0)
+	_check(on_top == CombatMath.Zone.FRONT, "an attacker on the target counts as front")
+	_check(is_equal_approx(rad_to_deg(CombatMath.FRONT_HALF_ANGLE), 60.0), "front zone is 60 degrees")
+	_check(is_equal_approx(rad_to_deg(CombatMath.REAR_START_ANGLE), 120.0), "rear starts at 120")
+	_check(is_equal_approx(rad_to_deg(CombatMath.BITE_HALF_ARC) * 2.0, 100.0), "bite arc is 100")
+	_check(is_equal_approx(CombatMath.zone_multiplier(CombatMath.Zone.FRONT), 1.0), "front x1")
+	_check(is_equal_approx(CombatMath.zone_multiplier(CombatMath.Zone.FLANK), 1.25), "flank x1.25")
+	_check(is_equal_approx(CombatMath.zone_multiplier(CombatMath.Zone.REAR), 1.5), "rear x1.5")
+	_check(CombatMath.bite_damage(0.0, CombatMath.Zone.REAR) == 0.0, "zero base damage stays zero")
+	_check(
+		is_equal_approx(CombatMath.bite_damage(8.0, CombatMath.Zone.FLANK), 10.0),
+		"flank bite of 8 deals 10"
+	)
+
+
+func _test_bite_arc_edges() -> void:
+	var origin := Vector3.ZERO
+	for yaw: float in [0.0, 1.0]:
+		for side: float in [1.0, -1.0]:
+			var inside := _at_angle(origin, yaw, side * 49.5, 2.0)
+			var outside := _at_angle(origin, yaw, side * 50.5, 2.0)
+			var tag := "side %s, yaw %s" % [side, yaw]
+			_check(CombatMath.in_bite_arc(origin, yaw, inside), "49.5 degrees is in the arc, " + tag)
+			_check(not CombatMath.in_bite_arc(origin, yaw, outside), "50.5 is out, " + tag)
+	var high := _at_angle(origin, 0.0, 49.5, 2.0) + Vector3(0.0, 3.0, 0.0)
+	_check(CombatMath.in_bite_arc(origin, 0.0, high), "a raised target is still in the arc")
+	_check(CombatMath.in_bite_arc(origin, 0.0, origin), "a target on the attacker is in the arc")
+	_check(CombatMath.in_bite_arc(origin, PI / 2.0, Vector3(-2.0, 0.0, 0.0)), "yaw PI/2 faces -X")
+	_check(not CombatMath.in_bite_arc(origin, PI / 2.0, Vector3(2.0, 0.0, 0.0)), "and not +X")
+	_check(CombatMath.bite_reach(1.0, 1.0) > CombatMath.bite_reach(0.5, 0.5), "bigger reaches further")
+
+
+func _test_bite_cooldown(tree: SceneTree) -> void:
+	var ground := _make_ground(tree)
+	var hunter_species := SpeciesData.new()
+	hunter_species.bite_damage = 10.0
+	hunter_species.bite_cooldown = 0.5
+	var attacker := _spawn_dino(tree, hunter_species, Vector3(0.0, 0.1, 0.0))
+	var target := _spawn_dino(tree, SpeciesData.new(), Vector3(0.0, 0.1, -1.5))
+	attacker.rotation.y = 0.0
+	target.rotation.y = PI
+	var zones: Array[int] = []
+	attacker.bit.connect(
+		func(_target: Dino, _amount: float, zone: int) -> void: zones.append(zone)
+	)
+	await _wait(tree, 2)
+	_check(attacker.bite(target), "a bite in reach and arc lands")
+	_check(is_equal_approx(target.health, 90.0), "the bite dealt its damage")
+	_check(not attacker.bite_ready(), "the bite starts the cooldown")
+	_check(not attacker.bite(target), "a second bite during the cooldown fails")
+	_check(is_equal_approx(target.health, 90.0), "the blocked bite did no damage")
+	TimeController.set_paused(true)
+	await _wait(tree, 60)
+	_check(not attacker.bite_ready(), "the cooldown does not run while paused")
+	TimeController.set_paused(false)
+	await _wait(tree, 20)
+	_check(not attacker.bite_ready(), "the cooldown is still running")
+	await _wait(tree, 20)
+	_check(attacker.bite_ready(), "the cooldown expires")
+	_check(attacker.bite(target), "a bite after the cooldown lands")
+	_check(is_equal_approx(target.health, 80.0), "second bite dealt its damage")
+	await _wait(tree, 40)
+	attacker.rotation.y = PI
+	_check(not attacker.bite(target), "a target outside the arc cannot be bitten")
+	_check(is_equal_approx(target.health, 80.0), "the missed bite did no damage")
+	attacker.rotation.y = 0.0
+	target.rotation.y = 0.0
+	_check(attacker.bite(target), "a bite from behind lands")
+	_check(is_equal_approx(target.health, 65.0), "a rear bite deals 150%")
+	_check(zones.size() == 3 and zones[2] == CombatMath.Zone.REAR, "the signal reports the rear")
+	_check(not attacker.bite(null), "biting nothing fails")
+	_check(not attacker.bite(attacker), "a dino cannot bite itself")
+	attacker.take_damage(1000.0)
+	_check(not attacker.bite_ready(), "a dead dino is never ready to bite")
+	_check(not attacker.bite(target), "a dead dino cannot bite")
+	TimeController.set_paused(false)
+	for node: Node in [ground, attacker, target]:
+		node.queue_free()
+	await tree.process_frame
 
 
 func _test_brain_decide() -> void:

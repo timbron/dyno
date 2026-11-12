@@ -28,11 +28,21 @@ life; DNA mutations pass to the next generation.
 ## Tests
 
 ```
-godot --headless --path . -s res://tests/run_tests.gd
+bash tests/ci/run_godot.sh import
+bash tests/ci/run_godot.sh tests
 ```
 
-Tests live in `tests/suite.gd`; `run_tests.gd` only loads and runs it. Lint with
-`gdlint $(find . -name "*.gd")` (`pip install "gdtoolkit==4.*"`).
+Run both from the project root. These are the same two steps CI runs. Set `GODOT=<path>` if
+the Godot binary is not on PATH. Tests live in `tests/suite.gd` and the suites it loads
+(`combat_suite.gd`, `encounter_suite.gd`, `ui_suite.gd`); `run_tests.gd` only loads and runs
+them.
+
+CI (GitHub Actions, Godot 4.7.2) fails a step on a non-zero exit, a timeout (import 300 s,
+tests 420 s), or any script, parse or compile error. The tests step also fails on any `ERROR`
+or `FAIL:` line, a leak report, or a missing "N checks, 0 failed" line. `run_tests.gd` fails a
+run that hangs after 300 s.
+
+Lint with `gdlint $(find . -name "*.gd")` (`pip install "gdtoolkit==4.*"`).
 
 ## Layout
 
@@ -40,7 +50,7 @@ Tests live in `tests/suite.gd`; `run_tests.gd` only loads and runs it. Lint with
 data/      Species, AI profile and encounter resources; later abilities and mutations
 scenes/    .tscn files, one folder per layer (ui, strategic, tactical, dino)
 src/       GDScript, mirrored by layer; src/core holds the autoloads
-tests/     Headless test runner
+tests/     Headless tests; `tests/ci/` holds the CI runner script
 docs/      GDD, architecture, plan, UI style, sub-agent briefs
 ```
 

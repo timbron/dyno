@@ -38,7 +38,7 @@ OPEN from QA-01:
 | A-01 | Wild AI v1: idle, flee when hurt, attack when cornered or predator (done 2026-11-12) | 04 | D-01 |
 | U-01 | Tactical HUD per design: squad portraits, order queue strip, pause overlay (done 2026-11-12, headless only, not checked against the design canvas) | 06 | T-02 |
 | U-02 | Species select and main menu per design (done 2026-11-12, not checked against the design canvas) | 06 | QA-01 |
-| QA-02 | Tests for damage and arc maths; CI lint and headless test run | 08 | T-01 |
+| QA-02 | Tests for damage and arc maths; CI lint and headless test run (done 2026-11-12, headless and Git Bash only; hardened CI not yet run on GitHub Actions) | 08 | T-01 |
 
 Parallel lanes: (D-01, D-02) with (T-04, U-02); then (T-01, A-01); then (T-02, T-03, U-01, QA-02).
 
@@ -69,6 +69,15 @@ OPEN from U-01:
 - Follow-up: ability slots stay empty until P-02; WAIT and USE_ABILITY orders are not shown
   in the strip (no destination).
 - Follow-up (07): Barlow and Barlow Condensed files in `assets/fonts/`.
+
+OPEN from QA-02:
+
+- Follow-up (04): WildBrain calls `_rng.randomize()` in `_ready()`, so `_test_wild_brain` is not
+  deterministic. Suggest an optional seed (`rng_seed`, 0 = randomize) that the tests set.
+- Follow-up (08): verify the Godot download against the release's SHA512-SUMS.txt in CI.
+- The hardened CI workflow has not yet run on GitHub Actions. Check that it parses with the new
+  `permissions` and `defaults.run.shell` keys, that the Linux import exits 0, and that the test
+  log has no leak or ERROR lines.
 
 ## M2 Survival loop
 
