@@ -36,7 +36,7 @@ OPEN from QA-01:
 | T-03 | Encounter setup from data: who spawns where, win / flee / death outcomes back to map (done 2026-11-12, headless only) | 03 | D-02 |
 | T-04 | Pack follow: unselected members follow or hold; formation spacing (done 2026-11-12) | 03 | QA-01 |
 | A-01 | Wild AI v1: idle, flee when hurt, attack when cornered or predator (done 2026-11-12) | 04 | D-01 |
-| U-01 | Tactical HUD per design: squad portraits, order queue strip, pause overlay | 06 | T-02 |
+| U-01 | Tactical HUD per design: squad portraits, order queue strip, pause overlay (done 2026-11-12, headless only, not checked against the design canvas) | 06 | T-02 |
 | U-02 | Species select and main menu per design (done 2026-11-12, not checked against the design canvas) | 06 | QA-01 |
 | QA-02 | Tests for damage and arc maths; CI lint and headless test run | 08 | T-01 |
 
@@ -48,6 +48,27 @@ OPEN from T-02 and T-03:
   edge posts, the result banner and the three encounters for balance.
 - Nothing consumes `GameState.last_encounter` yet (S-01 feeding, S-02 wounds and losses).
 - Map markers and their encounter ids are constants in `strategic_map.gd` (S-05).
+
+OPEN from U-01:
+
+- Check the HUD against the "Dyno UI" canvas: vertical squad list, portrait content, paused-only
+  order strip, chip wording, wash strength, AMBER and CLAY banner text (UI_STYLE says BONE or
+  LICHEN only on panels).
+- Layout at 1600x900, 1280x720, 3840x2160, 16:10 and 21:9; click pass-through and right-drag
+  orbit over the panels in a windowed run.
+- Chip ellipsis and the 170 px chip width cap (no real font metrics headless).
+- Readability of the 25% pause wash and the 11 px captions.
+- Path-preview numbers match the chip numbers; a chip goes when its attack target dies.
+- Tab moves the SELECTED frame and F flips the pack caption, through real key input.
+- Question: should clicking a portrait select that dino? Recommend yes, as a follow-up; needs
+  a new `EventBus.unit_select_requested(dino)` that SquadController listens to.
+- Question: should unselected pack members show following or holding one by one? Recommend
+  not now; needs a tactical-side contract.
+- Follow-up: encounter objective panel (top right) needs the encounter name and living wild
+  count on EventBus or from EncounterDirector.
+- Follow-up: ability slots stay empty until P-02; WAIT and USE_ABILITY orders are not shown
+  in the strip (no destination).
+- Follow-up (07): Barlow and Barlow Condensed files in `assets/fonts/`.
 
 ## M2 Survival loop
 

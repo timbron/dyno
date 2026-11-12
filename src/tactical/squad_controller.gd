@@ -24,6 +24,7 @@ var pack_following: bool = true
 
 var _holding: Array[Dino] = []
 var _right_press: Vector2 = Vector2.INF
+var _announced: Array[Dino] = []
 
 
 func _ready() -> void:
@@ -56,6 +57,7 @@ func select(index: int) -> void:
 		if not members[candidate].is_dead():
 			selected_index = candidate
 			break
+	_announce_squad()
 	EventBus.unit_selected.emit(selected())
 
 
@@ -195,6 +197,16 @@ func _update_followers() -> void:
 			continue
 		dino.move_intent = offset / distance
 		dino.wants_sprint = distance > CATCH_UP_DISTANCE
+
+
+## Tells the HUD the member list, but only when it differs from the one last announced.
+func _announce_squad() -> void:
+	if members == _announced:
+		return
+	_announced = members.duplicate()
+	var roster: Array[Node3D] = []
+	roster.assign(members)
+	EventBus.squad_changed.emit(roster)
 
 
 func _halt(dino: Dino) -> void:

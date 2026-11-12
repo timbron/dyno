@@ -35,6 +35,7 @@ is pure black, pure white or saturated.
 - **Slot**: 56 px square, CANOPY, BARK border, key number top-left in LICHEN.
 - **Pause state**: AMBER border on the banner, 25% CANOPY wash over the 3D view, order
   paths drawn in BONE dashes with numbered waypoints.
+- HUD looks are theme type variations defined in `JungleTheme.build()`; scenes name a variation, never a colour.
 
 ## Screens
 

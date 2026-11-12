@@ -30,6 +30,7 @@ must survive the change.
 | `day_passed(day)` | GameState | new day number |
 | `tactical_pause_changed(paused)` | TimeController | bool |
 | `unit_selected(dino)` | SquadController | selected `Dino` |
+| `squad_changed(members)` | SquadController (in `select()`, when the member list differs from the one last announced) | `Array[Node3D]`: the whole player squad as `Dino` nodes, in order, dead included |
 | `dino_died(dino)` | Dino | the dead `Dino` |
 | `pack_mode_changed(following)` | SquadController | bool: true = follow, false = hold |
 | `encounter_started(index)` | GameState (`begin_encounter()`) | map marker index |
@@ -57,7 +58,10 @@ must survive the change.
 | `Formation` | `src/tactical/formation.gd` | Pure wedge maths: `slot_offset()`, `slot_position()`, `spacing_for()` |
 | `SquadController` | `src/tactical/squad_controller.gd` | Selection (living only), direct control, click orders, pack follow / hold: `pack_following`, `set_pack_following()`, `living()`, `order_move(point, append)`, `order_attack(target, append)`, `cancel_orders(last_only)` |
 | `ThirdPersonCamera` | `src/camera/third_person_camera.gd` | `set_target()`; runs while paused |
-| `Palette`, `JungleTheme` | `src/ui/` | Colours and Theme builder |
+| `Palette`, `JungleTheme` | `src/ui/` | Colours and Theme builder; HUD looks are theme type variations named by `JungleTheme` constants |
+| `HudFormat` (RefCounted) | `src/ui/hud_format.gd` | Pure HUD text and state: `portrait_glyph()`, `member_look()`, `member_state()`, `pack_caption()`, `status_line()`, `order_labels()`, `is_attack_label()` |
+| `SquadPortrait` (PanelContainer) | `src/ui/squad_portrait.gd`, `scenes/ui/squad_portrait.tscn` | One squad member's row in the HUD: `dino`, `setup(member, number)`, `refresh(selected)` |
+| `OrderStrip` (PanelContainer) | `src/ui/order_strip.gd` | Selected dino's live orders as chips, shown while paused: `show_orders(dino)`, `chip_count()`, `MAX_CHIPS` |
 
 ## Death and corpses
 
@@ -176,3 +180,10 @@ stop. The strategic map does not use tactical pause: time there passes only whil
   not data.
 - Main menu "Continue" is disabled until save and load exist (C-01).
 - UI screens were built without the "Dyno UI" design canvas; check them against it.
+- HUD has no encounter objective panel (top right): the HUD has no source for the objective
+  or the wild count.
+- HUD portraits are letter tiles (species initial, member number); there is no art.
+- HUD has no clickable controls: selection is Tab only, clicks reach the SquadController.
+- Barlow fonts are not installed, so the HUD uses the default font and no letter tracking.
+- `JungleTheme` Button focus stylebox uses a `Color(0, 0, 0, 0)` literal, which breaks the
+  palette rule (pre-existing).

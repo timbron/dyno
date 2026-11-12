@@ -1,64 +1,107 @@
 extends CanvasLayer
-## Tactical HUD: selected-dino vitals, day/age readout, ability slots, pause banner.
-## Greybox layout built in code; final layout follows docs/UI_STYLE.md.
+## Tactical HUD: day and age readout, squad portraits with vitals, ability slots, pause
+## wash and banner, the selected dino's order strip and the encounter result banner.
+## Layout lives in scenes/ui/hud.tscn; looks come from JungleTheme type variations.
+## Everything is learned from EventBus, GameState and the Dino nodes the signals carry.
+## No HUD control takes mouse input, so every click reaches the SquadController.
 
-const EDGE: int = 24
-const BAR_SIZE: Vector2 = Vector2(240.0, 12.0)
+const MAX_PORTRAITS: int = 8
+const WASH_ALPHA: float = 0.25
+const PORTRAIT_SCENE: PackedScene = preload("res://scenes/ui/squad_portrait.tscn")
 
-var _dino: Dino
-var _name_label: Label
-var _health_bar: ProgressBar
-var _stamina_bar: ProgressBar
-var _status_label: Label
-var _pause_banner: PanelContainer
-var _result_banner: PanelContainer
-var _result_label: Label
+var _squad: Array[Dino] = []
+var _selected: Dino
+var _pack_following: bool = true
+var _portraits: Array[SquadPortrait] = []
+
+@onready var _root: Control = %Root
+@onready var _pause_wash: ColorRect = %PauseWash
+@onready var _status_label: Label = %StatusLabel
+@onready var _pack_label: Label = %PackLabel
+@onready var _result_label: Label = %ResultLabel
+@onready var _squad_list: VBoxContainer = %SquadList
+@onready var _pause_banner: PanelContainer = %PauseBanner
+@onready var _result_banner: PanelContainer = %ResultBanner
+@onready var _order_strip: OrderStrip = %OrderStrip
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	var root := Control.new()
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.theme = JungleTheme.build()
-	add_child(root)
-
-	_place(root, _build_vitals(), Control.PRESET_BOTTOM_LEFT)
-	_place(root, _build_status(), Control.PRESET_TOP_LEFT)
-	_place(root, _build_abilities(), Control.PRESET_CENTER_BOTTOM)
-	_place(root, _build_hints(), Control.PRESET_BOTTOM_RIGHT)
-	_pause_banner = _build_pause_banner()
-	_place(root, _pause_banner, Control.PRESET_CENTER_TOP)
-	_pause_banner.visible = false
-	_result_banner = _build_result_banner()
-	_place(root, _result_banner, Control.PRESET_CENTER)
+	_root.theme = JungleTheme.build()
+	_pause_wash.color = Color(Palette.CANOPY, WASH_ALPHA)
 	_result_banner.visible = false
-
+	_apply_pause(TimeController.is_paused)
+	_refresh_pack_label()
+	_ignore_mouse(self)
+	EventBus.squad_changed.connect(_on_squad_changed)
 	EventBus.unit_selected.connect(_on_unit_selected)
 	EventBus.tactical_pause_changed.connect(_on_pause_changed)
+	EventBus.pack_mode_changed.connect(_on_pack_mode_changed)
 	EventBus.encounter_ended.connect(_on_encounter_ended)
 
 
 func _process(_delta: float) -> void:
-	_status_label.text = "Day %d  ·  %02d:00  ·  Generation %d" % [
-		GameState.day, int(GameState.hour), GameState.generation
-	]
-	if not is_instance_valid(_dino):
-		return
-	_health_bar.max_value = _dino.species.max_health
-	_health_bar.value = _dino.health
-	_stamina_bar.max_value = _dino.species.max_stamina
-	_stamina_bar.value = _dino.stamina
+	_status_label.text = HudFormat.status_line(
+		GameState.day, GameState.hour, GameState.age_days(), GameState.generation
+	)
+	for portrait in _portraits:
+		portrait.refresh(portrait.dino == _selected and is_instance_valid(_selected))
+	if _order_strip.visible:
+		_order_strip.show_orders(_selected if is_instance_valid(_selected) else null)
+
+
+func _on_squad_changed(members: Array[Node3D]) -> void:
+	var dinos: Array[Dino] = []
+	for member in members:
+		if not is_instance_valid(member):
+			continue
+		var dino := member as Dino
+		if dino != null:
+			dinos.append(dino)
+		if dinos.size() >= MAX_PORTRAITS:
+			break
+	_set_squad(dinos)
+
+
+func _set_squad(dinos: Array[Dino]) -> void:
+	_squad = dinos
+	for child in _squad_list.get_children():
+		_squad_list.remove_child(child)
+		child.queue_free()
+	_portraits.clear()
+	for i in dinos.size():
+		var portrait := PORTRAIT_SCENE.instantiate() as SquadPortrait
+		_squad_list.add_child(portrait)
+		portrait.setup(dinos[i], i + 1)
+		_ignore_mouse(portrait)
+		_portraits.append(portrait)
+	_refresh_pack_label()
 
 
 func _on_unit_selected(dino: Node3D) -> void:
-	_dino = dino as Dino
-	if _dino != null:
-		_name_label.text = _dino.display_label
+	_selected = dino as Dino
+	if _selected != null and not _squad.has(_selected):
+		var solo: Array[Dino] = [_selected]
+		_set_squad(solo)
 
 
 func _on_pause_changed(paused: bool) -> void:
+	_apply_pause(paused)
+
+
+func _apply_pause(paused: bool) -> void:
+	_pause_wash.visible = paused
 	_pause_banner.visible = paused
+	_order_strip.visible = paused
+
+
+func _on_pack_mode_changed(following: bool) -> void:
+	_pack_following = following
+	_refresh_pack_label()
+
+
+func _refresh_pack_label() -> void:
+	_pack_label.text = HudFormat.pack_caption(_squad.size(), _pack_following)
 
 
 func _on_encounter_ended(result: RefCounted) -> void:
@@ -79,90 +122,8 @@ func _on_encounter_ended(result: RefCounted) -> void:
 	_result_banner.visible = true
 
 
-func _place(root: Control, panel: Control, preset: Control.LayoutPreset) -> void:
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(panel)
-	panel.set_anchors_and_offsets_preset(preset, Control.PRESET_MODE_MINSIZE, EDGE)
-	var bottom := [
-		Control.PRESET_BOTTOM_LEFT, Control.PRESET_CENTER_BOTTOM, Control.PRESET_BOTTOM_RIGHT
-	]
-	if preset in bottom:
-		panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	if preset == Control.PRESET_BOTTOM_RIGHT:
-		panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	if preset in [Control.PRESET_CENTER_BOTTOM, Control.PRESET_CENTER_TOP, Control.PRESET_CENTER]:
-		panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	if preset == Control.PRESET_CENTER:
-		panel.grow_vertical = Control.GROW_DIRECTION_BOTH
-
-
-func _build_vitals() -> PanelContainer:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override(&"separation", 6)
-	_name_label = JungleTheme.label("Dino", Palette.BONE, 18)
-	box.add_child(_name_label)
-	box.add_child(JungleTheme.label("HEALTH", Palette.LICHEN, 11))
-	_health_bar = _bar(Palette.CLAY)
-	box.add_child(_health_bar)
-	box.add_child(JungleTheme.label("STAMINA", Palette.LICHEN, 11))
-	_stamina_bar = _bar(Palette.RIVER)
-	box.add_child(_stamina_bar)
-	return _panel(box)
-
-
-func _build_status() -> PanelContainer:
-	_status_label = JungleTheme.label("Day 1", Palette.LICHEN, 14)
-	return _panel(_status_label)
-
-
-func _build_abilities() -> PanelContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override(&"separation", 8)
-	for i in 4:
-		var slot := PanelContainer.new()
-		slot.custom_minimum_size = Vector2(56.0, 56.0)
-		slot.add_theme_stylebox_override(
-			&"panel", JungleTheme.flat_box(Palette.CANOPY, Palette.BARK, 1, 4, 6)
-		)
-		slot.add_child(JungleTheme.label(str(i + 1), Palette.LICHEN, 12))
-		row.add_child(slot)
-	return _panel(row)
-
-
-func _build_hints() -> PanelContainer:
-	var text := "WASD move  ·  Click move / attack  ·  Ctrl+Click queue\n"
-	text += "Tab next dino  ·  F pack follow / hold  ·  Space pause\n"
-	text += "RMB cancel orders  ·  RMB drag orbit  ·  Backspace retreat"
-	return _panel(JungleTheme.label(text, Palette.LICHEN, 12))
-
-
-func _build_pause_banner() -> PanelContainer:
-	var panel := _panel(JungleTheme.label("PAUSED  —  PLAN YOUR MOVES", Palette.AMBER, 18))
-	panel.add_theme_stylebox_override(
-		&"panel", JungleTheme.flat_box(Color(Palette.CANOPY, 0.92), Palette.AMBER, 1, 4, 14)
-	)
-	return panel
-
-
-func _build_result_banner() -> PanelContainer:
-	_result_label = JungleTheme.label("", Palette.AMBER, 22)
-	_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var panel := _panel(_result_label)
-	panel.add_theme_stylebox_override(
-		&"panel", JungleTheme.flat_box(Color(Palette.CANOPY, 0.92), Palette.BARK, 1, 4, 18)
-	)
-	return panel
-
-
-func _panel(content: Control) -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.add_child(content)
-	return panel
-
-
-func _bar(fill: Color) -> ProgressBar:
-	var bar := ProgressBar.new()
-	bar.show_percentage = false
-	bar.custom_minimum_size = BAR_SIZE
-	bar.add_theme_stylebox_override(&"fill", JungleTheme.flat_box(fill, fill, 0, 2))
-	return bar
+func _ignore_mouse(node: Node) -> void:
+	if node is Control:
+		(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children():
+		_ignore_mouse(child)
